@@ -6,17 +6,16 @@ import {
   findEmailSchema,
   FindEmailSchema,
 } from "@app/login/schema";
-import {
-  authenticateEmailUser,
-  saveNicknameToCookies,
-  saveTokensToCookies,
-} from "@actions/actions";
 import findEmailApi from "@api/account-find/findEmail";
-import { revalidatePath } from "next/cache";
+import { TOKEN_COOKIE_NAME } from "@constants/auth";
+import emailLoginApi from "@api/login/emailLogin";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { URLS } from "@constants/urls";
 import { HTTPError } from "ky";
 import { z } from "zod";
+
+const isProduction = process.env.NODE_ENV === "production";
 
 export type EmailLoginFormState = {
   errors?: Record<keyof EmailLoginSchema, undefined | string[]>;
@@ -30,7 +29,7 @@ export type FindEmailFormState = {
   message: string;
 };
 
-export async function emailLoginAction(
+export async function emailLogin(
   prevState: EmailLoginFormState,
   formData: FormData,
 ): Promise<EmailLoginFormState> {
@@ -46,24 +45,37 @@ export async function emailLoginAction(
     };
   }
 
-  const authResult = await authenticateEmailUser({
-    password: validatedFields.data.password,
-    email: validatedFields.data.email,
-  });
+  let apiResult;
+  try {
+    apiResult = await emailLoginApi({
+      password: validatedFields.data.password,
+      email: validatedFields.data.email,
+    });
+  } catch (error) {
+    if (error instanceof HTTPError) {
+      const errorResponse = await error.response.json();
+      const errorMessage =
+        errorResponse.detail || "아이디 또는 비밀번호가 일치하지 않습니다.";
 
-  if (!authResult.success) {
-    return { message: authResult.message, success: false };
+      return { message: errorMessage, success: false };
+    }
+    return { message: "알 수 없는 에러가 발생했습니다.", success: false };
   }
 
-  await saveTokensToCookies({
-    refreshToken: authResult.tokens.refresh_token,
-    accessToken: authResult.tokens.access_token,
+  const cookieStore = await cookies();
+  cookieStore.set(TOKEN_COOKIE_NAME.ACCESS_TOKEN, apiResult.access_token, {
+    secure: isProduction,
+    sameSite: "lax",
+    httpOnly: true,
+    path: "/",
   });
-  await saveNicknameToCookies({
-    nickname: authResult.tokens.user.nickname,
+  cookieStore.set(TOKEN_COOKIE_NAME.REFRESH_TOKEN, apiResult.refresh_token, {
+    secure: isProduction,
+    sameSite: "lax",
+    httpOnly: true,
+    path: "/",
   });
 
-  revalidatePath(URLS.HOME, "layout");
   redirect(URLS.HOME);
 }
 

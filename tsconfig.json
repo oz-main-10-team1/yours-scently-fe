@@ -28,8 +28,7 @@
       "@custom-types/*": ["types/*"],
       "@hooks/*": ["hooks/*"],
       "@store/*": ["store/*"],
-      "@utils/*": ["utils/*"],
-      "@actions/*": ["actions/*"]
+      "@utils/*": ["utils/*"]
     }
   },
   "include": [
