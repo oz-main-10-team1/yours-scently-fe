@@ -7,12 +7,6 @@
 
 ---
 
-## :link: 배포 링크
-
-> ### [Yours, Scently](https://yours-scently-fe.vercel.app/)
-
----
-
 ## 🧰 기술 스택
 
   <div>
